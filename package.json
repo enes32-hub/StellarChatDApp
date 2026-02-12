@@ -1,0 +1,17 @@
+{
+  "name": "ephemeral-chat-backend",
+  "version": "1.0.0",
+  "description": "Ephemeral Chat Backend with Node.js and Socket.io",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5",
+    "stellar-sdk": "^13.3.0"
+  }
+}
