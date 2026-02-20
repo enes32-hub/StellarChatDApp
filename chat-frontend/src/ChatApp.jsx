@@ -13,7 +13,6 @@ import {
   emitSendMessage,
   emitGetRooms,
   onNewMessage,
-  onRoomCreated,
   onJoinedRoom,
   onRoomError,
   onAvailableRooms,
@@ -56,6 +55,7 @@ function ChatApp() {
   const [currentRoom, setCurrentRoom] = useState('lobby');
   const [messages, setMessages] = useState([]);
   const [roomExpirationTime, setRoomExpirationTime] = useState(null);
+  const [currentTime, setCurrentTime] = useState(() => Date.now());
 
   // UI State
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -80,73 +80,9 @@ function ChatApp() {
   const messagesEndRef = useRef(null);
   const audioRef = useRef(null);
 
-  // ==================== EFFECTS ====================
-
-
-
-  // Socket Setup
-  useEffect(() => {
-    connectSocket();
-
-    // Event listeners
-    onNewMessage(handleNewMessage);
-    onAvailableRooms(handleRoomsUpdate);
-    onJoinedRoom(handleJoinedRoom);
-    onRoomError(handleRoomError);
-    onUserJoined(handleUserJoined);
-    onUserLeft(handleUserLeft);
-    onRoomDeleted(handleRoomDeleted);
-    onRoomMessage(handleRoomSystemMessage);
-    onRoomInfoUpdate(handleRoomInfoUpdate);
-    onMessageHistory(handleMessageHistory); // Yeni eklendi
-
-    emitGetRooms();
-
-    return () => {
-      disconnectSocket();
-    };
-  }, []);
-
-  // Wallet Check
-  useEffect(() => {
-    checkFreighterConnection();
-  }, []);
-
-  // Auto Scroll
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  // Nickname Save Effect
-  useEffect(() => {
-    localStorage.setItem('nickname', nickname);
-  }, [nickname]);
-
-  // Room Expiration Countdown Effect
-  useEffect(() => {
-    if (!roomExpirationTime) return;
-
-    const interval = setInterval(() => {
-      const now = Date.now();
-      const remaining = roomExpirationTime - now;
-
-      if (remaining <= 0) {
-        setRoomExpirationTime(null); // Oda süresi doldu
-        if (currentRoom !== 'lobby') { // Sadece lobide değilsek
-            toast.error(`${currentRoom} odasının süresi doldu ve kapatıldı.`);
-            // İsteğe bağlı: Lobiye otomatik yönlendirme
-            setCurrentRoom('lobby');
-        }
-        return;
-      }
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [roomExpirationTime, currentRoom]);
-
   // ==================== SOCKET HANDLERS ====================
 
-  const handleNewMessage = (data) => {
+  function handleNewMessage(data) {
     setMessages(prev => [...prev, data]);
 
     // Play notification sound if not my message
@@ -158,43 +94,43 @@ function ChatApp() {
     } catch (error) {
       console.error('Error in handleNewMessage:', error);
     }
-  };
+  }
 
-  const handleRoomsUpdate = (roomsList) => {
+  function handleRoomsUpdate(roomsList) {
     setRooms(roomsList);
-  };
+  }
 
-  const handleJoinedRoom = (roomName) => {
+  function handleJoinedRoom(roomName) {
     setCurrentRoom(roomName);
     setMessages([]); // Odaya katılırken mevcut mesajları temizle
     emitGetMessageHistory(roomName); // Mesaj geçmişini talep et
     toast.success(`${roomName} odasına katıldınız!`);
-  };
+  }
 
-  const handleRoomError = (errorMessage) => {
+  function handleRoomError(errorMessage) {
     toast.error(errorMessage);
-  };
+  }
 
-  const handleUserJoined = (userId) => {
+  function handleUserJoined(userId) {
     console.log('User joined:', userId);
-  };
+  }
 
-  const handleUserLeft = (userId) => {
+  function handleUserLeft(userId) {
     console.log('User left:', userId);
-  };
+  }
 
-  const handleRoomDeleted = (roomName) => {
+  function handleRoomDeleted(roomName) {
     toast.error(`${roomName} odası silindi!`);
     if (currentRoom === roomName) {
       setCurrentRoom('lobby');
     }
-  };
+  }
 
-  const handleRoomSystemMessage = (message) => {
+  function handleRoomSystemMessage(message) {
     toast(message, { icon: 'ℹ️' });
-  };
+  }
 
-  const handleRoomInfoUpdate = (data) => {
+  function handleRoomInfoUpdate(data) {
     setRooms(prevRooms =>
       prevRooms.map(room =>
         room.name === data.room
@@ -205,18 +141,18 @@ function ChatApp() {
     if (data.room === currentRoom && data.expiresAt) {
       setRoomExpirationTime(data.expiresAt);
     }
-  };
+  }
 
-  const handleMessageHistory = (messagesHistory) => {
+  function handleMessageHistory(messagesHistory) {
     // Mesaj geçmişini yüklerken mevcut mesajları temizle
     setMessages(messagesHistory);
-  };
+  }
 
   // ==================== WALLET FUNCTIONS ====================
 
   // ==================== WALLET FUNCTIONS (Using freighterUtils) ====================
 
-  const checkFreighterConnection = async () => {
+  async function checkFreighterConnection() {
     try {
       console.log('='.repeat(60));
       console.log('🚀 [ChatApp] Component mounted, checking Freighter...');
@@ -241,7 +177,7 @@ function ChatApp() {
       console.error('❌ [ChatApp] Unexpected error in checkFreighterConnection:', error);
       toast.error(`Beklenmeyen hata: ${error.message}`);
     }
-  };
+  }
 
   const connectWallet = async () => {
     try {
@@ -402,7 +338,7 @@ function ChatApp() {
         toast.success('🎉 Bağış başarılı! Teşekkürler!', { id: 'donate' });
         console.log('✅ [ChatApp] Donation successful!');
         console.log('Transaction hash:', result.txHash);
-        console.log('Explorer:', `https://stellar.expert/explorer/testnet/tx/${result.hash}`);
+        console.log('Explorer:', `https://stellar.expert/explorer/testnet/tx/${result.txHash}`);
 
         // Refresh balance by reconnecting
         const refreshResult = await connectFreighterWallet();
@@ -462,9 +398,73 @@ function ChatApp() {
     }
   };
 
-  const scrollToBottom = () => {
+  function scrollToBottom() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  }
+
+  // ==================== EFFECTS ====================
+
+  // Socket Setup
+  // Socket listeners are registered once at mount.
+  useEffect(() => {
+    connectSocket();
+
+    onNewMessage(handleNewMessage);
+    onAvailableRooms(handleRoomsUpdate);
+    onJoinedRoom(handleJoinedRoom);
+    onRoomError(handleRoomError);
+    onUserJoined(handleUserJoined);
+    onUserLeft(handleUserLeft);
+    onRoomDeleted(handleRoomDeleted);
+    onRoomMessage(handleRoomSystemMessage);
+    onRoomInfoUpdate(handleRoomInfoUpdate);
+    onMessageHistory(handleMessageHistory);
+
+    emitGetRooms();
+
+    return () => {
+      disconnectSocket();
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Wallet Check
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      checkFreighterConnection();
+    }, 0);
+    return () => clearTimeout(timeout);
+  }, []);
+
+  // Auto Scroll
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  // Nickname Save Effect
+  useEffect(() => {
+    localStorage.setItem('nickname', nickname);
+  }, [nickname]);
+
+  // Room Expiration Countdown Effect
+  useEffect(() => {
+    if (!roomExpirationTime) return;
+
+    const interval = setInterval(() => {
+      const now = Date.now();
+      setCurrentTime(now);
+      const remaining = roomExpirationTime - now;
+
+      if (remaining <= 0) {
+        setRoomExpirationTime(null);
+        if (currentRoom !== 'lobby') {
+          toast.error(`${currentRoom} odasının süresi doldu ve kapatıldı.`);
+          setCurrentRoom('lobby');
+        }
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [roomExpirationTime, currentRoom]);
 
   const formatRemainingTime = (ms) => {
     const totalSeconds = Math.max(0, Math.floor(ms / 1000));
@@ -701,7 +701,7 @@ function ChatApp() {
           </h2>
           {roomExpirationTime && (
             <span className="text-sm text-gray-600">
-              Kalan Süre: {formatRemainingTime(roomExpirationTime - Date.now())}
+              Kalan Süre: {formatRemainingTime(roomExpirationTime - currentTime)}
             </span>
           )}
           <div className="relative">
@@ -776,7 +776,7 @@ function ChatApp() {
               try {
                 const socket = getSocket();
                 isMine = socket && msg.sender === socket.id;
-              } catch (error) {
+              } catch {
                 // Socket not ready
               }
 

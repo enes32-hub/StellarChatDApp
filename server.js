@@ -6,12 +6,16 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: "http://localhost:5173",
+        // Allow frontend requests from different development hosts
+        // (localhost, 127.0.0.1, LAN IP, etc.).
+        origin: true,
         methods: ["GET", "POST"]
     }
 });
 
 const PORT = process.env.PORT || 3000;
+const ROOM_INACTIVITY_MS = 60 * 60 * 1000; // 1 hour
+const REAPER_INTERVAL_MS = 10 * 1000; // Check every 10 seconds
 
 // Oda yönetimi için merkezi bir obje
 const rooms = {
@@ -181,32 +185,35 @@ io.on('connection', (socket) => {
     });
 });
 
-// The 30-Second Reaper: Her 10 saniyede bir çalışan bir setInterval (TEST MODE)
+// Reaper for inactive ephemeral rooms
 setInterval(() => {
     const now = Date.now();
-    const thirtySecondsAgo = now - (30 * 1000); // 30 saniye = 30.000 ms
+    const cutoff = now - ROOM_INACTIVITY_MS;
     const roomsToDelete = [];
 
     for (const roomName in rooms) {
         if (roomName === 'lobby') continue; // Lobi odası silinmez
 
         const room = rooms[roomName];
-        if (room.type === 'ephemeral' && room.lastActivity < thirtySecondsAgo) {
-            console.log(`Ephemeral room '${roomName}' has been inactive for 30 seconds. Deleting.`);
+        if (room.type === 'ephemeral' && room.lastActivity < cutoff) {
+            console.log(`Ephemeral room '${roomName}' has been inactive for ${ROOM_INACTIVITY_MS} ms. Deleting.`);
             roomsToDelete.push(roomName);
         }
     }
 
     roomsToDelete.forEach(roomName => {
         // Odadaki tüm kullanıcıları lobiye taşı
-        io.sockets.in(roomName).sockets.forEach(socketId => {
-            const socket = io.sockets.sockets.get(socketId);
-            if (socket) {
-                socket.emit('room_message', `Oda '${roomName}' etkinlik olmadığından silindi. Lobiye yönlendirildiniz.`);
-                removeUserFromRoom(socket, roomName); // Eski odadan çıkar
-                addUserToRoom(socket, 'lobby'); // Lobiye ekle
-            }
-        });
+        const roomSockets = io.sockets.adapter.rooms.get(roomName);
+        if (roomSockets) {
+            roomSockets.forEach(socketId => {
+                const socket = io.sockets.sockets.get(socketId);
+                if (socket) {
+                    socket.emit('room_message', `Oda '${roomName}' etkinlik olmadığından silindi. Lobiye yönlendirildiniz.`);
+                    removeUserFromRoom(socket, roomName); // Eski odadan çıkar
+                    addUserToRoom(socket, 'lobby'); // Lobiye ekle
+                }
+            });
+        }
         delete rooms[roomName]; // Odayı sil
         io.emit('room_deleted', roomName);
         console.log(`Room '${roomName}' deleted.`);
@@ -220,7 +227,7 @@ setInterval(() => {
         users: rooms[name].users.size
     })));
 
-}, 10 * 1000); // Her 10 saniyede bir çalışır (TEST MODE)
+}, REAPER_INTERVAL_MS);
 
 app.get('/', (req, res) => {
     res.send('Ephemeral Chat Backend is running.');

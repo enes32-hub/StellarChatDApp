@@ -15,8 +15,11 @@ const STELLAR_NETWORK = StellarSdk.Networks.TESTNET;
  */
 export const connectWallet = async () => {
   try {
-    const isAvailable = await isConnected();
-    if (!isAvailable) {
+    const { isConnected: walletConnected, error: isConnectedError } = await isConnected();
+    if (isConnectedError) {
+      return { success: false, publicKey: null, error: isConnectedError.message || "Freighter kontrolu basarisiz." };
+    }
+    if (!walletConnected) {
       return { success: false, publicKey: null, error: "Freighter eklentisi bulunamadi veya etkin degil. Lutfen kurun/etkinlestirin." };
     }
 
@@ -55,8 +58,11 @@ export const connectWallet = async () => {
  */
 export const checkConnection = async () => {
   try {
-    const isAvailable = await isConnected();
-    if (!isAvailable) {
+    const { isConnected: walletConnected, error: isConnectedError } = await isConnected();
+    if (isConnectedError) {
+      return { success: false, publicKey: null, error: "Freighter eklentisi bulunamadi veya etkin degil." };
+    }
+    if (!walletConnected) {
       return { success: false, publicKey: null, error: "Freighter eklentisi bulunamadi veya etkin degil." };
     }
 
@@ -124,13 +130,19 @@ export function disconnectWallet() {
  */
 export async function signTransactionXDR(xdr) {
   try {
-    const signedXDR = await _freighterSignTransaction(xdr, {
-      network: 'TESTNET',
+    const { signedTxXdr, error } = await _freighterSignTransaction(xdr, {
       networkPassphrase: StellarSdk.Networks.TESTNET, // StellarSdk.Networks.TESTNET kullanildi
     });
+    if (error || !signedTxXdr) {
+      return {
+        success: false,
+        signedXDR: null,
+        error: error?.message || 'Islem imzalama basarisiz oldu.'
+      };
+    }
     return {
       success: true,
-      signedXDR,
+      signedXDR: signedTxXdr,
       error: null
     };
   } catch (error) {
