@@ -3,8 +3,13 @@ import { io } from 'socket.io-client';
 // Socket instance
 let socket = null;
 
-// Backend URL
-const SERVER_URL = 'http://localhost:3000';
+// Backend URL:
+// - Use VITE_SOCKET_URL when provided
+// - In production fallback to same-origin
+// - In development fallback to local backend
+const SERVER_URL =
+  (import.meta.env.VITE_SOCKET_URL || '').trim() ||
+  (import.meta.env.PROD ? window.location.origin : 'http://localhost:3000');
 
 /**
  * Initialize socket connection

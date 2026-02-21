@@ -100,6 +100,27 @@ The application consists of two main parts: a backend server and a frontend clie
     ```
 *   The frontend application will be available at `http://localhost:5173`. Open this URL in your browser to use the chat application.
 
+### Frontend Environment
+
+The frontend supports an optional environment variable for Socket.IO backend URL:
+
+```bash
+# chat-frontend/.env
+VITE_SOCKET_URL=https://your-backend-domain.com
+```
+
+Behavior:
+*   If `VITE_SOCKET_URL` is set, frontend connects to that backend.
+*   If not set in production, frontend uses same-origin (`window.location.origin`).
+*   If not set in development, frontend uses `http://localhost:3000`.
+
+## Deployment Checklist
+
+1.  Deploy backend (`server.js`) to a public URL (Render/Railway/Fly/etc.).
+2.  Deploy frontend (`chat-frontend`) to Vercel/Netlify.
+3.  Set `VITE_SOCKET_URL` in frontend deployment environment to your backend URL (if frontend and backend are on different domains).
+4.  Make sure your Freighter wallet is on Stellar Testnet and funded.
+
 ## Soroban Contract
 
 The smart contract source code is located in the `chat_support_contract` directory.
@@ -115,4 +136,3 @@ soroban contract build
 # Deploy the contract (requires a funded account)
 soroban contract deploy --wasm target/wasm32v1-none/release/chat_support_contract.wasm --source <YOUR_ACCOUNT>
 ```
-
