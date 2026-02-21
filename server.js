@@ -17,23 +17,23 @@ const PORT = process.env.PORT || 3000;
 const ROOM_INACTIVITY_MS = 60 * 60 * 1000; // 1 hour
 const REAPER_INTERVAL_MS = 10 * 1000; // Check every 10 seconds
 
-// Oda yönetimi için merkezi bir obje
+// Central object for room management
 const rooms = {
     'lobby': {
         type: 'permanent',
         password: null,
         lastActivity: Date.now(),
-        users: new Set(), // Her odada kimlerin olduğunu takip etmek için
+        users: new Set(), // Track users in each room
         messages: [] // Add messages array
     },
-    'Genel': {
+    'General': {
         type: 'permanent',
         password: null,
         lastActivity: Date.now(),
         users: new Set(),
         messages: [] // Add messages array
     },
-    'Teknoloji': {
+    'Technology': {
         type: 'permanent',
         password: null,
         lastActivity: Date.now(),
@@ -49,7 +49,7 @@ const rooms = {
     }
 };
 
-// Yardımcı fonksiyon: Kullanıcıyı odadan çıkar
+// Helper: remove user from room
 function removeUserFromRoom(socket, roomName) {
     if (rooms[roomName]) {
         rooms[roomName].users.delete(socket.id);
@@ -63,14 +63,14 @@ function removeUserFromRoom(socket, roomName) {
     }
 }
 
-// Yardımcı fonksiyon: Kullanıcıyı odaya ekle
+// Helper: add user to room
 function addUserToRoom(socket, roomName) {
     if (rooms[roomName]) {
-        removeUserFromRoom(socket, socket.currentRoom); // Mevcut odadan çıkar
+        removeUserFromRoom(socket, socket.currentRoom); // Leave current room
         rooms[roomName].users.add(socket.id);
         socket.join(roomName);
         socket.currentRoom = roomName;
-        rooms[roomName].lastActivity = Date.now(); // Oda aktivitesini güncelle
+        rooms[roomName].lastActivity = Date.now(); // Update room activity
         socket.emit('joined_room', roomName);
         socket.to(roomName).emit('user_joined', socket.id);
         io.to(roomName).emit('room_info_update', {
@@ -84,18 +84,18 @@ function addUserToRoom(socket, roomName) {
 io.on('connection', (socket) => {
     console.log('A user connected:', socket.id);
 
-    // Her yeni bağlantıda kullanıcıyı lobiye al
+    // Put every new connection into lobby
     addUserToRoom(socket, 'lobby');
 
-    // Oda oluşturma eventi
+    // Room creation event
     socket.on('create_room', ({ roomName, roomType, password }) => {
         if (rooms[roomName]) {
-            socket.emit('room_error', 'Bu isimde bir oda zaten mevcut.');
+            socket.emit('room_error', 'A room with this name already exists.');
             return;
         }
 
         rooms[roomName] = {
-            type: roomType || 'ephemeral', // Varsayılan ephemeral
+            type: roomType || 'ephemeral', // Default to ephemeral
             password: password || null,
             lastActivity: Date.now(),
             users: new Set(),
@@ -103,7 +103,7 @@ io.on('connection', (socket) => {
         };
         console.log(`Room ${roomName} created with type ${roomType}`);
         socket.emit('room_created', roomName);
-        addUserToRoom(socket, roomName); // Odayı oluşturan kullanıcıyı yeni odaya al
+        addUserToRoom(socket, roomName); // Move creator to the new room
         io.emit('available_rooms', Object.keys(rooms).map(name => ({
             name,
             type: rooms[name].type,
@@ -112,15 +112,15 @@ io.on('connection', (socket) => {
         })));
     });
 
-    // Odaya katılma eventi
+    // Join room event
     socket.on('join_room', ({ roomName, password }) => {
         if (!rooms[roomName]) {
-            socket.emit('room_error', 'Bu isimde bir oda mevcut değil.');
+            socket.emit('room_error', 'No room exists with this name.');
             return;
         }
 
         if (rooms[roomName].password && rooms[roomName].password !== password) {
-            socket.emit('room_error', 'Yanlış şifre.');
+            socket.emit('room_error', 'Incorrect password.');
             return;
         }
 
@@ -133,10 +133,10 @@ io.on('connection', (socket) => {
         })));
     });
 
-    // Mesaj gönderme eventi
+    // Send message event
     socket.on('send_message', ({ roomName, message, nickname }) => { // Destructure nickname
         if (rooms[roomName]) {
-            rooms[roomName].lastActivity = Date.now(); // Aktiviteyi güncelle
+            rooms[roomName].lastActivity = Date.now(); // Update activity
             const messageData = { sender: socket.id, message, roomName, nickname, timestamp: Date.now() }; // Include nickname
             
             // Store the message
@@ -148,11 +148,11 @@ io.on('connection', (socket) => {
             io.to(roomName).emit('new_message', messageData);
             console.log(`Message from ${nickname || socket.id} in ${roomName}: ${message}`);
         } else {
-            socket.emit('room_error', 'Mesaj gönderilen oda mevcut değil.');
+            socket.emit('room_error', 'The room for this message does not exist.');
         }
     });
 
-    // Bağlantı kesilmesi
+    // Disconnect event
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);
         if (socket.currentRoom) {
@@ -166,7 +166,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Mevcut odaları listeleme isteği
+    // Request available rooms
     socket.on('get_available_rooms', () => {
         socket.emit('available_rooms', Object.keys(rooms).map(name => ({
             name,
@@ -176,7 +176,7 @@ io.on('connection', (socket) => {
         })));
     });
 
-    // Mesaj geçmişini gönderme eventi
+    // Send message history event
     socket.on('get_message_history', ({ roomName }) => {
         if (rooms[roomName]) {
             socket.emit('message_history', rooms[roomName].messages);
@@ -192,7 +192,7 @@ setInterval(() => {
     const roomsToDelete = [];
 
     for (const roomName in rooms) {
-        if (roomName === 'lobby') continue; // Lobi odası silinmez
+        if (roomName === 'lobby') continue; // Never delete lobby
 
         const room = rooms[roomName];
         if (room.type === 'ephemeral' && room.lastActivity < cutoff) {
@@ -202,24 +202,24 @@ setInterval(() => {
     }
 
     roomsToDelete.forEach(roomName => {
-        // Odadaki tüm kullanıcıları lobiye taşı
+        // Move all room users to lobby
         const roomSockets = io.sockets.adapter.rooms.get(roomName);
         if (roomSockets) {
             roomSockets.forEach(socketId => {
                 const socket = io.sockets.sockets.get(socketId);
                 if (socket) {
-                    socket.emit('room_message', `Oda '${roomName}' etkinlik olmadığından silindi. Lobiye yönlendirildiniz.`);
-                    removeUserFromRoom(socket, roomName); // Eski odadan çıkar
+                    socket.emit('room_message', `Room '${roomName}' was deleted due to inactivity. You were moved to the lobby.`);
+                    removeUserFromRoom(socket, roomName); // Leave old room
                     addUserToRoom(socket, 'lobby'); // Lobiye ekle
                 }
             });
         }
-        delete rooms[roomName]; // Odayı sil
+        delete rooms[roomName]; // Delete room
         io.emit('room_deleted', roomName);
         console.log(`Room '${roomName}' deleted.`);
     });
 
-    // Odalar listesini güncelleyelim
+    // Broadcast updated room list
     io.emit('available_rooms', Object.keys(rooms).map(name => ({
         name,
         type: rooms[name].type,

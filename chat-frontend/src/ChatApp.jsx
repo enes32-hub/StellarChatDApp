@@ -32,10 +32,10 @@ import {
   getBalance
 } from './utils/freighterUtils';
 
-// Soroban Contract ID (Deploy sonrası güncellenecek)
+// Soroban Contract ID (update after deploy)
 const CONTRACT_ID = 'CC3D5HEWNTBGTTNGIGT7EEY44WHGB3IMWYCVPSZGZSGLLUGAXGV4TKTN';
 const STELLAR_NETWORK = StellarSdk.Networks.TESTNET;
-const ROOM_CREATION_FEE = 0.1; // XLM cinsinden cüzi bir miktar
+const ROOM_CREATION_FEE = 0.1; // Small amount in XLM
 
 function ChatApp() {
   // ==================== STATE ====================
@@ -102,9 +102,9 @@ function ChatApp() {
 
   function handleJoinedRoom(roomName) {
     setCurrentRoom(roomName);
-    setMessages([]); // Odaya katılırken mevcut mesajları temizle
-    emitGetMessageHistory(roomName); // Mesaj geçmişini talep et
-    toast.success(`${roomName} odasına katıldınız!`);
+    setMessages([]); // Clear existing messages when joining a room
+    emitGetMessageHistory(roomName); // Request message history
+    toast.success(`Joined ${roomName}!`);
   }
 
   function handleRoomError(errorMessage) {
@@ -120,7 +120,7 @@ function ChatApp() {
   }
 
   function handleRoomDeleted(roomName) {
-    toast.error(`${roomName} odası silindi!`);
+    toast.error(`${roomName} room was deleted!`);
     if (currentRoom === roomName) {
       setCurrentRoom('lobby');
     }
@@ -144,7 +144,7 @@ function ChatApp() {
   }
 
   function handleMessageHistory(messagesHistory) {
-    // Mesaj geçmişini yüklerken mevcut mesajları temizle
+    // Replace current messages with room history
     setMessages(messagesHistory);
   }
 
@@ -163,10 +163,10 @@ function ChatApp() {
         setPublicKey(connectionResult.publicKey);
         setBalance(await getBalance(connectionResult.publicKey));
         setIsWalletConnected(true);
-        toast.success('🎉 Cüzdan otomatik olarak bağlandı!');
+        toast.success('Wallet auto-connected!');
         console.log('✅ [ChatApp] Wallet auto-connected');
       } else if (connectionResult.error) {
-        toast.error(`Cüzdan kontrolü sırasında hata oluştu: ${connectionResult.error}`);
+        toast.error(`Error while checking wallet connection: ${connectionResult.error}`);
         console.error('❌ [ChatApp] Error in checkFreighterConnection:', connectionResult.error);
       } else {
         console.log('ℹ️ [ChatApp] User not connected, waiting for manual connect');
@@ -175,7 +175,7 @@ function ChatApp() {
       console.log('='.repeat(60));
     } catch (error) {
       console.error('❌ [ChatApp] Unexpected error in checkFreighterConnection:', error);
-      toast.error(`Beklenmeyen hata: ${error.message}`);
+      toast.error(`Unexpected error: ${error.message}`);
     }
   }
 
@@ -185,7 +185,7 @@ function ChatApp() {
       console.log('🔗 [ChatApp] User clicked Connect Wallet button');
       console.log('='.repeat(60));
 
-      const loadingToast = toast.loading('Cüzdan bağlanıyor...');
+      const loadingToast = toast.loading('Connecting wallet...');
       const result = await connectFreighterWallet();
       toast.dismiss(loadingToast);
 
@@ -193,17 +193,17 @@ function ChatApp() {
         setPublicKey(result.publicKey);
         setBalance(await getBalance(result.publicKey));
         setIsWalletConnected(true);
-        toast.success('🎉 Cüzdan başarıyla bağlandı!');
+        toast.success('Wallet connected successfully!');
         console.log('✅ [ChatApp] Wallet connected successfully');
       } else {
         console.error('❌ [ChatApp] Wallet connection failed:', result.error);
-        toast.error(`Cüzdan bağlantısı başarısız: ${result.error}`, { duration: 5000 });
+        toast.error(`Wallet connection failed: ${result.error}`, { duration: 5000 });
       }
 
       console.log('='.repeat(60));
     } catch (error) {
       console.error('❌ [ChatApp] Unexpected error in connectWallet:', error);
-      toast.error(`Beklenmeyen hata: ${error.message}`, { duration: 5000 });
+      toast.error(`Unexpected error: ${error.message}`, { duration: 5000 });
     }
   };
 
@@ -215,7 +215,7 @@ function ChatApp() {
     setIsWalletConnected(false);
 
     disconnectFreighterWallet();
-    toast.success('Cüzdan bağlantısı kesildi');
+    toast.success('Wallet disconnected');
     console.log('✅ [ChatApp] Wallet disconnected, state cleared');
   };
 
@@ -223,24 +223,24 @@ function ChatApp() {
 
   const handleCreateRoom = async () => { // Make it async
     if (!newRoomName.trim()) {
-      toast.error('Oda adı gerekli!');
+      toast.error('Room name is required!');
       return;
     }
 
     if (!isWalletConnected) {
-      toast.error('Oda oluşturmak için cüzdanınızı bağlamalısınız!');
+      toast.error('You must connect your wallet to create a room!');
       return;
     }
 
-    const adminAddress = 'GAH3WM7BDRBYGFTRPLI6DHYO2GREMTILTN4NYBAHYLIWK4JLLRO2HJBH'; // Oda ücreti alıcısı
+    const adminAddress = 'GAH3WM7BDRBYGFTRPLI6DHYO2GREMTILTN4NYBAHYLIWK4JLLRO2HJBH'; // Room fee recipient
 
-    toast.loading(`Oda oluşturma ücreti (${ROOM_CREATION_FEE} XLM) ödeniyor...`, { id: 'room-fee' });
+    toast.loading(`Paying room creation fee (${ROOM_CREATION_FEE} XLM)...`, { id: 'room-fee' });
 
     try {
       const paymentResult = await sendPayment(publicKey, adminAddress, ROOM_CREATION_FEE.toString());
 
       if (paymentResult.success) {
-        toast.success('Oda ücreti başarıyla ödendi. Oda oluşturuluyor...', { id: 'room-fee' });
+        toast.success('Room fee paid. Creating room...', { id: 'room-fee' });
         emitCreateRoom(newRoomName.trim(), newRoomType, newRoomPassword || null);
 
         setNewRoomName('');
@@ -248,11 +248,11 @@ function ChatApp() {
         setNewRoomPassword('');
         setShowCreateRoomModal(false);
       } else {
-        toast.error(`Oda ücreti ödemesi başarısız: ${paymentResult.error}`, { id: 'room-fee' });
+        toast.error(`Room fee payment failed: ${paymentResult.error}`, { id: 'room-fee' });
       }
     } catch (error) {
-      console.error('Oda ücreti ödemesi sırasında beklenmeyen hata:', error);
-      toast.error(`Beklenmeyen hata: ${error.message}`, { id: 'room-fee' });
+      console.error('Unexpected error during room fee payment:', error);
+      toast.error(`Unexpected error: ${error.message}`, { id: 'room-fee' });
     }
   };
 
@@ -267,7 +267,7 @@ function ChatApp() {
 
   const handleJoinWithPassword = () => {
     if (!joinRoomPassword.trim()) {
-      toast.error('Şifre gerekli!');
+      toast.error('Password is required!');
       return;
     }
 
@@ -306,13 +306,13 @@ function ChatApp() {
 
     // Validation
     if (!isWalletConnected) {
-      toast.error('Önce cüzdanınızı bağlayın!');
+      toast.error('Connect your wallet first!');
       console.warn('⚠️ [ChatApp] Wallet not connected, cannot donate');
       return;
     }
 
     if (!donateAmount || parseFloat(donateAmount) <= 0) {
-      toast.error('Geçerli bir miktar girin!');
+      toast.error('Enter a valid amount!');
       console.warn('⚠️ [ChatApp] Invalid donation amount:', donateAmount);
       return;
     }
@@ -328,14 +328,14 @@ function ChatApp() {
       });
 
       // Show loading
-      toast.loading('Bağış işlemi hazırlanıyor...', { id: 'donate' });
+      toast.loading('Preparing donation transaction...', { id: 'donate' });
 
       // Use utility function to send payment
       const result = await sendPayment(publicKey, adminAddress, amount.toString());
 
       if (result.success) {
         // Success!
-        toast.success('🎉 Bağış başarılı! Teşekkürler!', { id: 'donate' });
+        toast.success('Donation successful! Thank you!', { id: 'donate' });
         console.log('✅ [ChatApp] Donation successful!');
         console.log('Transaction hash:', result.txHash);
         console.log('Explorer:', `https://stellar.expert/explorer/testnet/tx/${result.txHash}`);
@@ -352,7 +352,7 @@ function ChatApp() {
         setShowDonateModal(false);
       } else {
         // Error
-        toast.error(`Bağış başarısız: ${result.error}`, { id: 'donate' });
+        toast.error(`Donation failed: ${result.error}`, { id: 'donate' });
         console.error('❌ [ChatApp] Donation failed:', result.error);
       }
 
@@ -365,19 +365,19 @@ function ChatApp() {
         name: error.name
       });
 
-      toast.error(`Beklenmeyen hata: ${error.message}`, { id: 'donate' });
+      toast.error(`Unexpected error: ${error.message}`, { id: 'donate' });
     }
   };
 
   // ==================== UTILITY FUNCTIONS ====================
 
   const generateAvatar = (address) => {
-    if (!address) return ''; // Adres yoksa boş bir string döndürerek hatayı önle
+    if (!address) return ''; // Return empty string to avoid errors when address is missing
     const avatar = createAvatar(identicon, {
       seed: address,
       size: 40,
     });
-    // SVG'yi bir veri URI'sine dönüştür. Bu, <img> etiketlerinde doğrudan kullanım için gereklidir.
+    // Convert SVG to a data URI for direct use in <img> tags.
     const svg = avatar.toString();
     return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
   };
@@ -389,7 +389,7 @@ function ChatApp() {
 
   const formatTimestamp = (timestamp) => {
     const date = new Date(timestamp);
-    return date.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   };
 
   const playNotificationSound = () => {
@@ -457,7 +457,7 @@ function ChatApp() {
       if (remaining <= 0) {
         setRoomExpirationTime(null);
         if (currentRoom !== 'lobby') {
-          toast.error(`${currentRoom} odasının süresi doldu ve kapatıldı.`);
+          toast.error(`${currentRoom} expired and was closed.`);
           setCurrentRoom('lobby');
         }
       }
@@ -475,7 +475,7 @@ function ChatApp() {
 
   // ==================== RENDER ====================
 
-  const permanentRooms = ['Genel', 'Teknoloji', 'Gaming'];
+  const permanentRooms = ['General', 'Technology', 'Gaming'];
   const ephemeralRooms = rooms.filter(r => r.type === 'ephemeral');
   const currentRoomMessages = messages.filter(m => m.roomName === currentRoom);
 
@@ -534,7 +534,7 @@ function ChatApp() {
         {/* Nickname Section */}
         <div className="p-4 border-b border-gray-300">
           <label htmlFor="nickname" className="block text-xs font-semibold text-gray-500 uppercase mb-2">
-            Takma Adınız
+            Your Nickname
           </label>
           <div className="flex gap-2"> {/* Added flex container for input and button */}
             <input
@@ -542,19 +542,19 @@ function ChatApp() {
               type="text"
               value={pendingNickname} // Use pendingNickname here
               onChange={(e) => setPendingNickname(e.target.value)} // Update pendingNickname
-              placeholder="Takma adınızı girin"
+              placeholder="Enter your nickname"
               className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-primary"
               maxLength={20} // Limit nickname length
             />
             <button
               onClick={() => {
                 setNickname(pendingNickname); // Update actual nickname state
-                toast.success('Takma adınız güncellendi!');
+                toast.success('Nickname updated!');
               }}
               className="px-4 py-2 bg-primary hover:bg-blue-600 text-white rounded-lg font-medium transition"
               disabled={pendingNickname === nickname} // Disable if no change
             >
-              Kaydet
+              Save
             </button>
           </div>
         </div>
@@ -564,7 +564,7 @@ function ChatApp() {
           {/* Permanent Rooms */}
           <div className="p-4">
             <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">
-              Kalıcı Odalar
+              Permanent Rooms
             </h3>
             {permanentRooms.map(roomName => {
               const room = rooms.find(r => r.name === roomName) || { users: 0 };
@@ -592,10 +592,10 @@ function ChatApp() {
           {/* Ephemeral Rooms */}
           <div className="p-4 border-t border-gray-300 dark:border-gray-700 relative">
             <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">
-              Geçici Odalar
+              Ephemeral Rooms
             </h3>
             {ephemeralRooms.length === 0 ? (
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Henüz geçici oda yok</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">No ephemeral rooms yet</p>
             ) : (
               ephemeralRooms.map(room => (
                 <button
@@ -621,49 +621,49 @@ function ChatApp() {
                 onClick={() => { setShowCreateRoomModal(true); setShowDonateModal(false); }}
                 className="w-full px-3 py-2 mt-2 bg-secondary hover:bg-green-600 text-white rounded-lg font-medium transition"
               >
-                + Yeni Oda
+                + New Room
               </button>
               {showCreateRoomModal && (
                 <div className="absolute top-full left-0 mt-2 z-50">
                   <div className="bg-white border-4 border-black p-6 w-96">
-                    <h3 className="text-xl font-bold mb-4 text-gray-800 dark:text-white">Yeni Oda Oluştur</h3>
+                    <h3 className="text-xl font-bold mb-4 text-gray-800 dark:text-white">Create New Room</h3>
 
                     <div className="space-y-4">
                       <div>
                         <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                          Oda Adı
+                          Room Name
                         </label>
                         <input
                           type="text"
                           value={newRoomName}
                           onChange={(e) => setNewRoomName(e.target.value)}
-                          placeholder="örn: Web3 Sohbet"
+                          placeholder="e.g. Web3 Chat"
                           className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary"
                         />
                       </div>
 
                       <div>
                         <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                          Oda Türü
+                          Room Type
                         </label>
                         <select
                           value={newRoomType}
                           onChange={(e) => setNewRoomType(e.target.value)}
                           className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:focus:ring-primary"
                         >
-                          <option value="ephemeral">Geçici (10 dk sonra silinir)</option>
+                          <option value="ephemeral">Ephemeral (deleted after 10 min)</option>
                         </select>
                       </div>
 
                       <div>
                         <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                          Şifre (Opsiyonel)
+                          Password (Optional)
                         </label>
                         <input
                           type="password"
                           value={newRoomPassword}
                           onChange={(e) => setNewRoomPassword(e.target.value)}
-                          placeholder="Boş bırakabilirsiniz"
+                          placeholder="You can leave this empty"
                           className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary"
                         />
                       </div>
@@ -674,13 +674,13 @@ function ChatApp() {
                         onClick={() => setShowCreateRoomModal(false)}
                         className="flex-1 px-4 py-2 bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500 text-gray-800 dark:text-white rounded-lg transition"
                       >
-                        İptal
+                        Cancel
                       </button>
                       <button
                         onClick={handleCreateRoom}
                         className="flex-1 px-4 py-2 bg-primary hover:bg-blue-600 text-white rounded-lg transition"
                       >
-                        Oluştur
+                        Create
                       </button>
                     </div>
                   </div>
@@ -701,7 +701,7 @@ function ChatApp() {
           </h2>
           {roomExpirationTime && (
             <span className="text-sm text-gray-600">
-              Kalan Süre: {formatRemainingTime(roomExpirationTime - currentTime)}
+              Time Left: {formatRemainingTime(roomExpirationTime - currentTime)}
             </span>
           )}
           <div className="relative">
@@ -709,7 +709,7 @@ function ChatApp() {
               onClick={() => { setShowDonateModal(true); setShowCreateRoomModal(false); }}
               className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-medium transition flex items-center gap-2"
               disabled={!isWalletConnected}
-              title={!isWalletConnected ? 'Önce cüzdan bağlayın' : ''}
+              title={!isWalletConnected ? 'Connect wallet first' : ''}
             >
               💰 Support Admin
             </button>
@@ -717,27 +717,27 @@ function ChatApp() {
               <div className="absolute top-full left-0 mt-2 z-50">
                 <div className="relative z-10 !bg-white border-4 border-black p-6 w-96" style={{ backgroundColor: 'white', zIndex: 9999 }}>
                   <h3 className="text-xl font-bold mb-4 text-gray-800 dark:text-white">
-                    💰 Admin'e Bağış Yap
+                    💰 Donate to Admin
                   </h3>
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                    Stellar Chat'i destekleyin! Bağışınız admin hesabına gönderilecek.
+                    Support Stellar Chat! Your donation will be sent to the admin account.
                   </p>
 
                   <div className="mb-4">
                     <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                      Miktar (XLM)
+                      Amount (XLM)
                     </label>
                     <input
                       type="number"
                       value={donateAmount}
                       onChange={(e) => setDonateAmount(e.target.value)}
-                      placeholder="örn: 10"
+                      placeholder="e.g. 10"
                       min="0.1"
                       step="0.1"
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary"
                     />
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      Bakiyeniz: {balance} XLM
+                      Your Balance: {balance} XLM
                     </p>
                   </div>
 
@@ -749,13 +749,13 @@ function ChatApp() {
                       }}
                       className="flex-1 px-4 py-2 bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500 text-gray-800 dark:text-white rounded-lg transition"
                     >
-                      İptal
+                      Cancel
                     </button>
                     <button
                       onClick={handleDonateToAdmin}
                       className="flex-1 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition"
                     >
-                      Bağış Yap
+                      Donate
                     </button>
                   </div>
                 </div>
@@ -768,7 +768,7 @@ function ChatApp() {
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {currentRoomMessages.length === 0 ? (
             <div className="flex items-center justify-center h-full">
-              <p className="text-gray-500 dark:text-gray-400">Henüz mesaj yok. İlk mesajı siz gönderin!</p>
+              <p className="text-gray-500 dark:text-gray-400">No messages yet. Be the first to send one!</p>
             </div>
           ) : (
             currentRoomMessages.map((msg, idx) => {
@@ -849,7 +849,7 @@ function ChatApp() {
               value={messageInput}
               onChange={(e) => setMessageInput(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="Mesajınızı yazın..."
+              placeholder="Type your message..."
               className="flex-1 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary"
             />
             <button
@@ -868,10 +868,10 @@ function ChatApp() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-96 max-w-full mx-4">
             <h3 className="text-xl font-bold mb-4 text-gray-800 dark:text-white">
-              Şifreli Oda
+              Password-Protected Room
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              <strong>{pendingRoomName}</strong> odası şifre korumalı. Lütfen şifreyi girin:
+              <strong>{pendingRoomName}</strong> room is password-protected. Please enter the password:
             </p>
 
             <input
@@ -879,7 +879,7 @@ function ChatApp() {
               value={joinRoomPassword}
               onChange={(e) => setJoinRoomPassword(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleJoinWithPassword()}
-              placeholder="Oda şifresi"
+              placeholder="Room password"
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary mb-4"
               autoFocus
             />
@@ -893,13 +893,13 @@ function ChatApp() {
                 }}
                 className="flex-1 px-4 py-2 bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500 text-gray-800 dark:text-white rounded-lg transition"
               >
-                İptal
+                Cancel
               </button>
               <button
                 onClick={handleJoinWithPassword}
                 className="flex-1 px-4 py-2 bg-primary hover:bg-blue-600 text-white rounded-lg transition"
               >
-                Katıl
+                Join
               </button>
             </div>
           </div>

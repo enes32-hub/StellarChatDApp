@@ -7,7 +7,7 @@ let socket = null;
 const SERVER_URL = 'http://localhost:3000';
 
 /**
- * Socket bağlantısını başlat
+ * Initialize socket connection
  */
 export const connectSocket = () => {
   if (!socket || !socket.connected) {
@@ -19,11 +19,11 @@ export const connectSocket = () => {
     });
 
     socket.on('connect', () => {
-      console.log('✅ Socket connected:', socket.id);
+      console.log('Socket connected:', socket.id);
     });
 
     socket.on('disconnect', () => {
-      console.log('❌ Socket disconnected');
+      console.log('Socket disconnected');
     });
 
     socket.on('connect_error', (error) => {
@@ -35,7 +35,7 @@ export const connectSocket = () => {
 };
 
 /**
- * Socket bağlantısını kes
+ * Close socket connection
  */
 export const disconnectSocket = () => {
   if (socket) {
@@ -46,7 +46,7 @@ export const disconnectSocket = () => {
 };
 
 /**
- * Socket instance'ını döndür
+ * Get socket instance
  */
 export const getSocket = () => {
   if (!socket) {
@@ -58,7 +58,7 @@ export const getSocket = () => {
 // ==================== EMITTERS ====================
 
 /**
- * Yeni oda oluştur
+ * Create a new room
  */
 export const emitCreateRoom = (roomName, roomType = 'ephemeral', password = null) => {
   if (socket) {
@@ -67,7 +67,7 @@ export const emitCreateRoom = (roomName, roomType = 'ephemeral', password = null
 };
 
 /**
- * Odaya katıl
+ * Join a room
  */
 export const emitJoinRoom = (roomName, password = null) => {
   if (socket) {
@@ -76,7 +76,7 @@ export const emitJoinRoom = (roomName, password = null) => {
 };
 
 /**
- * Mesaj gönder
+ * Send a message
  */
 export const emitSendMessage = (roomName, message, nickname) => {
   if (socket) {
@@ -85,7 +85,7 @@ export const emitSendMessage = (roomName, message, nickname) => {
 };
 
 /**
- * Mevcut odaları getir
+ * Request available rooms
  */
 export const emitGetRooms = () => {
   if (socket) {
@@ -94,7 +94,7 @@ export const emitGetRooms = () => {
 };
 
 /**
- * Oda mesaj geçmişini talep et
+ * Request room message history
  */
 export const emitGetMessageHistory = (roomName) => {
   if (socket) {
@@ -105,7 +105,7 @@ export const emitGetMessageHistory = (roomName) => {
 // ==================== LISTENERS ====================
 
 /**
- * Yeni mesaj event'ini dinle
+ * Listen for new messages
  */
 export const onNewMessage = (callback) => {
   if (socket) {
@@ -114,7 +114,7 @@ export const onNewMessage = (callback) => {
 };
 
 /**
- * Oda oluşturuldu event'ini dinle
+ * Listen for room created event
  */
 export const onRoomCreated = (callback) => {
   if (socket) {
@@ -123,7 +123,7 @@ export const onRoomCreated = (callback) => {
 };
 
 /**
- * Odaya katıldın event'ini dinle
+ * Listen for joined room event
  */
 export const onJoinedRoom = (callback) => {
   if (socket) {
@@ -132,7 +132,7 @@ export const onJoinedRoom = (callback) => {
 };
 
 /**
- * Oda hata event'ini dinle
+ * Listen for room error event
  */
 export const onRoomError = (callback) => {
   if (socket) {
@@ -141,7 +141,7 @@ export const onRoomError = (callback) => {
 };
 
 /**
- * Mevcut odalar listesi event'ini dinle
+ * Listen for available rooms event
  */
 export const onAvailableRooms = (callback) => {
   if (socket) {
@@ -150,7 +150,7 @@ export const onAvailableRooms = (callback) => {
 };
 
 /**
- * Kullanıcı odaya katıldı event'ini dinle
+ * Listen for user joined event
  */
 export const onUserJoined = (callback) => {
   if (socket) {
@@ -159,7 +159,7 @@ export const onUserJoined = (callback) => {
 };
 
 /**
- * Kullanıcı odadan ayrıldı event'ini dinle
+ * Listen for user left event
  */
 export const onUserLeft = (callback) => {
   if (socket) {
@@ -168,7 +168,7 @@ export const onUserLeft = (callback) => {
 };
 
 /**
- * Oda silindi event'ini dinle
+ * Listen for room deleted event
  */
 export const onRoomDeleted = (callback) => {
   if (socket) {
@@ -177,7 +177,7 @@ export const onRoomDeleted = (callback) => {
 };
 
 /**
- * Oda bilgisi güncellendi event'ini dinle
+ * Listen for room info updates
  */
 export const onRoomInfoUpdate = (callback) => {
   if (socket) {
@@ -186,7 +186,7 @@ export const onRoomInfoUpdate = (callback) => {
 };
 
 /**
- * Oda mesajı event'ini dinle (sistem mesajları)
+ * Listen for room system messages
  */
 export const onRoomMessage = (callback) => {
   if (socket) {
@@ -195,7 +195,7 @@ export const onRoomMessage = (callback) => {
 };
 
 /**
- * Oda mesaj geçmişi event'ini dinle
+ * Listen for room message history
  */
 export const onMessageHistory = (callback) => {
   if (socket) {

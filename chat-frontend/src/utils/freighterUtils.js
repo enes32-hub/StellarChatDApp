@@ -1,109 +1,97 @@
 import { isConnected, requestAccess, getAddress, signTransaction as _freighterSignTransaction } from '@stellar/freighter-api';
 import * as StellarSdk from 'stellar-sdk';
 import { Horizon } from 'stellar-sdk';
-// 'react-hot-toast' buraya dahil edilmeli, ancak bu dosya içinde değil ChatApp.jsx içinde kullanılacak
-// Bu utils dosyası sadece bağlantı mantigini icecek
 
 const HORIZON_URL = 'https://horizon-testnet.stellar.org';
 const STELLAR_NETWORK = StellarSdk.Networks.TESTNET;
 
 /**
- * 🔗 Cuzdan baglanti akisi
- * Kullanicinin cuzdaninin yuklu olup olmadigini kontrol eder,
- * erisim izni ister ve Public Key'i dondurur.
- * Hata durumunda uygun mesaji konsola yazar ve hata nesnesi dondurur.
+ * Wallet connection flow:
+ * checks extension availability, requests access, and returns public key.
  */
 export const connectWallet = async () => {
   try {
     const { isConnected: walletConnected, error: isConnectedError } = await isConnected();
     if (isConnectedError) {
-      return { success: false, publicKey: null, error: isConnectedError.message || "Freighter kontrolu basarisiz." };
+      return { success: false, publicKey: null, error: isConnectedError.message || 'Freighter check failed.' };
     }
     if (!walletConnected) {
-      return { success: false, publicKey: null, error: "Freighter eklentisi bulunamadi veya etkin degil. Lutfen kurun/etkinlestirin." };
+      return { success: false, publicKey: null, error: 'Freighter extension not found or not enabled. Please install/enable it.' };
     }
 
     const { address, error } = await requestAccess();
 
     if (error) {
-      let errorMessage = "Cuzdan baglantisi sirasinda bilinmeyen bir hata olustu.";
-      if (error.message?.includes("User declined access")) {
-        errorMessage = "Cuzdan baglantisi kullanici tarafindan reddedildi.";
-      } else if (error.message?.includes("Wallet is locked")) {
-        errorMessage = "Freighter eklentisi kilitli. Lutfen sifrenizi girin.";
+      let errorMessage = 'Unknown error occurred during wallet connection.';
+      if (error.message?.includes('User declined access')) {
+        errorMessage = 'Wallet connection was declined by the user.';
+      } else if (error.message?.includes('Wallet is locked')) {
+        errorMessage = 'Freighter extension is locked. Please unlock it.';
       } else if (error.message) {
         errorMessage = error.message;
       }
-      console.error("❌ Cuzdan baglanti hatasi:", error);
+      console.error('Wallet connection error:', error);
       return { success: false, publicKey: null, error: errorMessage };
     }
 
     if (address) {
-      console.log("✅ Cuzdan Baglandi:", address);
+      console.log('Wallet connected:', address);
       return { success: true, publicKey: address, error: null };
     }
 
-    return { success: false, publicKey: null, error: "Cuzdan baglantisi basarisiz oldu." };
-
+    return { success: false, publicKey: null, error: 'Wallet connection failed.' };
   } catch (err) {
-    console.error("❌ Cuzdan baglanti islemi sirasinda beklenmeyen hata:", err);
-    return { success: false, publicKey: null, error: `Beklenmeyen hata: ${err.message}` };
+    console.error('Unexpected error during wallet connection:', err);
+    return { success: false, publicKey: null, error: `Unexpected error: ${err.message}` };
   }
 };
 
 /**
- * 🔍 Mevcut cuzdan baglantisini kontrol eder ve public key'i dondurur.
- * Sayfa yenilendiginde cuzdanin bagli kalmasi icin kullanilir.
- * @returns {Promise<{success: boolean, publicKey: string|null, error: string|null}>}
+ * Check current wallet connection and return public key.
+ * Useful for restoring session state on page refresh.
  */
 export const checkConnection = async () => {
   try {
     const { isConnected: walletConnected, error: isConnectedError } = await isConnected();
     if (isConnectedError) {
-      return { success: false, publicKey: null, error: "Freighter eklentisi bulunamadi veya etkin degil." };
+      return { success: false, publicKey: null, error: 'Freighter extension not found or not enabled.' };
     }
     if (!walletConnected) {
-      return { success: false, publicKey: null, error: "Freighter eklentisi bulunamadi veya etkin degil." };
+      return { success: false, publicKey: null, error: 'Freighter extension not found or not enabled.' };
     }
 
     const { address, error } = await getAddress();
 
     if (error) {
-      console.warn("ℹ️ Mevcut cuzdan baglantisi kontrol edilirken hata:", error.message);
-      // Kullanici baglantiyi reddettiyse veya cuzdan kilitliyse hata mesaji dondurmeyebiliriz, sadece baglanti yok deriz.
-      return { success: false, publicKey: null, error: null }; // Hata yerine sadece baglanti yok diyelim
+      console.warn('Error while checking existing wallet connection:', error.message);
+      return { success: false, publicKey: null, error: null };
     }
 
     if (address) {
-      console.log("✅ Mevcut cuzdan baglantisi bulundu:", address);
+      console.log('Existing wallet connection found:', address);
       return { success: true, publicKey: address, error: null };
     }
 
-    return { success: false, publicKey: null, error: null }; // Baglanti yok
-
+    return { success: false, publicKey: null, error: null };
   } catch (err) {
-    console.error("❌ Mevcut cuzdan baglantisi kontrol edilirken beklenmeyen hata:", err);
+    console.error('Unexpected error while checking existing wallet connection:', err);
     return { success: false, publicKey: null, error: null };
   }
 };
 
 /**
- * 💰 Public Key icin XLM bakiyesini getir
- * @param {string} publicKey
- * @returns {Promise<string>}
+ * Fetch XLM balance for public key
  */
 export async function getBalance(publicKey) {
   try {
     const server = new Horizon.Server(HORIZON_URL);
     const account = await server.loadAccount(publicKey);
-    const xlmBalance = account.balances.find(b => b.asset_type === 'native');
-    const balance = xlmBalance ? parseFloat(xlmBalance.balance).toFixed(2) : '0.00';
-    return balance;
+    const xlmBalance = account.balances.find((b) => b.asset_type === 'native');
+    return xlmBalance ? parseFloat(xlmBalance.balance).toFixed(2) : '0.00';
   } catch (error) {
-    console.error('❌ [Stellar] Bakiye getirilirken hata:', error);
-    // Fonlanmamış hesaplar 404 hatası verir, bu normal bir durum.
+    console.error('[Stellar] Error while fetching balance:', error);
     if (error.response && error.response.status === 404) {
-      console.warn("Hesap agda bulunamadi (fonlanmamis olabilir). Bakiye 0 olarak gosteriliyor.");
+      console.warn('Account not found on network (may be unfunded). Displaying 0 balance.');
       return '0.00';
     }
     return '0.00';
@@ -111,65 +99,53 @@ export async function getBalance(publicKey) {
 }
 
 /**
- * 🔌 Cuzdan baglantisini kes (sadece loglama amacli)
- * Freighter API'da dogrudan "disconnect" fonksiyonu olmadigi icin
- * sadece client tarafindaki durumu sifirlariz.
+ * Disconnect wallet on client state.
+ * Freighter API does not expose a direct disconnect method.
  */
 export function disconnectWallet() {
-  console.log('🔌 [Freighter] Cuzdan baglantisi kesildi (client tarafi)');
-  // Freighter API'da setAllowed(false) veya benzeri bir mekanizma yok.
-  // Bu nedenle sadece client tarafindaki state'i temizlemek yeterlidir.
+  console.log('[Freighter] Wallet disconnected on client state');
   return { success: true, message: 'Wallet disconnected' };
 }
 
 /**
- * 📡 Freighter ile islem imzala
- *
- * @param {string} xdr
- * @returns {Promise<{success: boolean, signedXDR: string|null, error: string|null}>}
+ * Sign transaction XDR with Freighter
  */
 export async function signTransactionXDR(xdr) {
   try {
     const { signedTxXdr, error } = await _freighterSignTransaction(xdr, {
-      networkPassphrase: StellarSdk.Networks.TESTNET, // StellarSdk.Networks.TESTNET kullanildi
+      networkPassphrase: StellarSdk.Networks.TESTNET,
     });
     if (error || !signedTxXdr) {
       return {
         success: false,
         signedXDR: null,
-        error: error?.message || 'Islem imzalama basarisiz oldu.'
+        error: error?.message || 'Transaction signing failed.',
       };
     }
     return {
       success: true,
       signedXDR: signedTxXdr,
-      error: null
+      error: null,
     };
   } catch (error) {
-    let errorMessage = 'Islem imzalama basarisiz oldu.';
+    let errorMessage = 'Transaction signing failed.';
     if (error.message?.includes('User declined transaction')) {
-      errorMessage = 'Islemi reddettiniz.';
+      errorMessage = 'You declined the transaction.';
     } else if (error.message?.includes('Wallet is locked')) {
-      errorMessage = 'Freighter eklentisi kilitli. Lutfen kilidini acin.';
+      errorMessage = 'Freighter extension is locked. Please unlock it.';
     } else if (error.message) {
       errorMessage = error.message;
     }
     return {
       success: false,
       signedXDR: null,
-      error: errorMessage
+      error: errorMessage,
     };
   }
 }
 
 /**
- * 💸 Odeme islemi gonder
- *
- * @param {string} fromPublicKey
- * @param {string} toPublicKey
- *
- * @param {string} amount
- * @returns {Promise<{success: boolean, txHash: string|null, error: string|null}>}
+ * Send payment transaction
  */
 export async function sendPayment(fromPublicKey, toPublicKey, amount) {
   try {
@@ -180,11 +156,13 @@ export async function sendPayment(fromPublicKey, toPublicKey, amount) {
       fee: StellarSdk.BASE_FEE,
       networkPassphrase: STELLAR_NETWORK,
     })
-      .addOperation(StellarSdk.Operation.payment({
-        destination: toPublicKey,
-        asset: StellarSdk.Asset.native(),
-        amount: amount.toString(),
-      }))
+      .addOperation(
+        StellarSdk.Operation.payment({
+          destination: toPublicKey,
+          asset: StellarSdk.Asset.native(),
+          amount: amount.toString(),
+        })
+      )
       .setTimeout(30)
       .build();
 
@@ -193,20 +171,17 @@ export async function sendPayment(fromPublicKey, toPublicKey, amount) {
       return { success: false, txHash: null, error: signResult.error };
     }
 
-    const signedTx = StellarSdk.TransactionBuilder.fromXDR(
-      signResult.signedXDR,
-      StellarSdk.Networks.TESTNET
-    );
-    console.log('Signed XDR from Freighter:', signResult.signedXDR); // Debugging line
+    const signedTx = StellarSdk.TransactionBuilder.fromXDR(signResult.signedXDR, StellarSdk.Networks.TESTNET);
+    console.log('Signed XDR from Freighter:', signResult.signedXDR);
     const result = await server.submitTransaction(signedTx);
 
     return { success: true, txHash: result.hash, error: null };
   } catch (error) {
-    let errorMessage = 'Odeme basarisiz oldu.';
+    let errorMessage = 'Payment failed.';
     if (error.message?.includes('insufficient')) {
-      errorMessage = 'Yetersiz bakiye.';
+      errorMessage = 'Insufficient balance.';
     } else if (error.message?.includes('account not found')) {
-      errorMessage = 'Hesap fonlanmamis. Lutfen once hesabiniza fon aktarin.';
+      errorMessage = 'Account is not funded. Please fund your account first.';
     } else if (error.message) {
       errorMessage = error.message;
     }
@@ -214,12 +189,11 @@ export async function sendPayment(fromPublicKey, toPublicKey, amount) {
   }
 }
 
-// Tum fonksiyonlari export ediyoruz
 export default {
   connectWallet,
   getBalance,
   disconnectWallet,
-  checkConnection, // Yeni eklenen fonksiyon
+  checkConnection,
   signTransaction: signTransactionXDR,
-  sendPayment
+  sendPayment,
 };

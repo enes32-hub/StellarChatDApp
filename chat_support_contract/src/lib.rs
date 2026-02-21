@@ -3,7 +3,7 @@ use soroban_sdk::{
     contract, contractimpl, log, token, Address, Env, String, Symbol,
 };
 
-// Sabitler artık metoda argüman olarak geçirildiği için kaldırılabilir veya referans olarak kalabilir.
+// Constants can be removed or kept as references since values are now method arguments.
 // const ADMIN_ADDRESS_STR_DEFAULT: &str = "GAH3WM7BDRBYGFTRPLI6DHYO2GREMTILTN4NYBAHYLIWK4JLLRO2HJBH";
 
 #[contract]
@@ -19,7 +19,7 @@ impl ChatSupportContract {
         );
     }
 
-    // Fonksiyon imzası güncellendi
+    // Function signature updated
     pub fn donate_to_admin(env: Env, from: Address, amount: i128, admin_address: Address, native_token_id: Address) {
         from.require_auth();
 
@@ -27,10 +27,10 @@ impl ChatSupportContract {
             panic!("Donation amount must be positive.");
         }
 
-        // admin adresi artık argüman olarak geliyor
-        // native token adresi de argüman olarak geliyor
+        // admin address is now passed as an argument
+        // native token address is now passed as an argument
         
-        // Transferi Gerçekleştir
+        // Execute transfer
         let client = token::Client::new(&env, &native_token_id);
         client.transfer(&from, &admin_address, &amount);
 
