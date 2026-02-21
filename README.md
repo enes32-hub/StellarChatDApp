@@ -1,6 +1,6 @@
 # Ephemeral Chat Application
 
-This project is a full-stack ephemeral chat application featuring real-time communication, room management, and integration with the Stellar blockchain (Testnet). It consists of a Node.js backend, a React-based frontend, and potentially a Soroban smart contract for on-chain functionalities.
+This project is a full-stack ephemeral chat application featuring real-time communication, room management, and integration with the Stellar blockchain (Testnet). It includes a Node.js backend, a React frontend, and a deployed Soroban smart contract used by the donation flow.
 
 ## Features
 
@@ -22,7 +22,7 @@ This project is a full-stack ephemeral chat application featuring real-time comm
 *   `chat-frontend/`:
     *   A React application built with Vite and Tailwind CSS, providing the user interface.
     *   Connects to the backend via Socket.io and interacts with Stellar via Freighter API.
-*   `chat_support_contract/`: (Directory) Contains the Soroban smart contract code, likely for on-chain chat features.
+*   `chat_support_contract/`: Soroban smart contract source code used for on-chain donation logic.
 
 ## Technologies Used
 
@@ -107,12 +107,17 @@ The frontend supports an optional environment variable for Socket.IO backend URL
 ```bash
 # chat-frontend/.env
 VITE_SOCKET_URL=https://your-backend-domain.com
+VITE_SOROBAN_RPC_URL=https://soroban-testnet.stellar.org
+VITE_CONTRACT_ID=CC3D5HEWNTBGTTNGIGT7EEY44WHGB3IMWYCVPSZGZSGLLUGAXGV4TKTN
+VITE_ADMIN_ADDRESS=GAH3WM7BDRBYGFTRPLI6DHYO2GREMTILTN4NYBAHYLIWK4JLLRO2HJBH
 ```
 
 Behavior:
 *   If `VITE_SOCKET_URL` is set, frontend connects to that backend.
 *   If not set in production, frontend uses same-origin (`window.location.origin`).
 *   If not set in development, frontend uses `http://localhost:3000`.
+*   `VITE_SOROBAN_RPC_URL` is used for contract simulation/submission.
+*   `VITE_CONTRACT_ID` and `VITE_ADMIN_ADDRESS` configure the on-chain donation flow.
 
 ## Deployment Checklist
 
@@ -127,6 +132,10 @@ The smart contract source code is located in the `chat_support_contract` directo
 
 **Contract ID:** The contract has been deployed to the Stellar Testnet with the following ID:
 `CC3D5HEWNTBGTTNGIGT7EEY44WHGB3IMWYCVPSZGZSGLLUGAXGV4TKTN`
+
+The frontend invokes `donate_to_admin` on this contract during donations.
+Method signature in contract:
+- `donate_to_admin(from: Address, amount: i128, admin_address: Address, native_token_id: Address)`
 
 To rebuild and redeploy the contract, you would typically use the Soroban CLI commands within the `chat_support_contract` directory:
 ```bash

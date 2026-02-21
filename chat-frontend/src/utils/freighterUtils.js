@@ -3,6 +3,7 @@ import * as StellarSdk from 'stellar-sdk';
 import { Horizon } from 'stellar-sdk';
 
 const HORIZON_URL = 'https://horizon-testnet.stellar.org';
+const SOROBAN_RPC_URL = (import.meta.env.VITE_SOROBAN_RPC_URL || 'https://soroban-testnet.stellar.org').trim();
 const STELLAR_NETWORK = StellarSdk.Networks.TESTNET;
 
 /**
@@ -189,6 +190,86 @@ export async function sendPayment(fromPublicKey, toPublicKey, amount) {
   }
 }
 
+function parseXlmToStroops(amountXlm) {
+  const input = String(amountXlm).trim();
+  if (!/^\d+(\.\d+)?$/.test(input)) {
+    throw new Error('Invalid amount format.');
+  }
+
+  const [whole, fracRaw = ''] = input.split('.');
+  const frac = (fracRaw + '0000000').slice(0, 7);
+  return BigInt(whole) * 10000000n + BigInt(frac);
+}
+
+async function pollSorobanResult(server, hash, maxAttempts = 20, delayMs = 1500) {
+  for (let i = 0; i < maxAttempts; i += 1) {
+    const tx = await server.getTransaction(hash);
+    if (tx.status === 'SUCCESS') {
+      return { success: true, tx };
+    }
+    if (tx.status === 'FAILED') {
+      return { success: false, error: 'Contract transaction failed on chain.' };
+    }
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
+  return { success: false, error: 'Transaction is still pending. Please check explorer in a moment.' };
+}
+
+/**
+ * Invoke deployed Soroban contract method: donate_to_admin
+ */
+export async function donateToAdminViaContract(fromPublicKey, amountXlm, adminAddress, contractId) {
+  try {
+    const stroops = parseXlmToStroops(amountXlm);
+    if (stroops <= 0n) {
+      return { success: false, txHash: null, error: 'Donation amount must be greater than 0.' };
+    }
+
+    const rpcServer = new StellarSdk.rpc.Server(SOROBAN_RPC_URL, { allowHttp: false });
+    const sourceAccount = await rpcServer.getAccount(fromPublicKey);
+    const nativeTokenId = StellarSdk.Asset.native().contractId(STELLAR_NETWORK);
+
+    const contract = new StellarSdk.Contract(contractId);
+    const operation = contract.call(
+      'donate_to_admin',
+      new StellarSdk.Address(fromPublicKey).toScVal(),
+      StellarSdk.nativeToScVal(stroops, { type: 'i128' }),
+      new StellarSdk.Address(adminAddress).toScVal(),
+      new StellarSdk.Address(nativeTokenId).toScVal()
+    );
+
+    const tx = new StellarSdk.TransactionBuilder(sourceAccount, {
+      fee: '100000',
+      networkPassphrase: STELLAR_NETWORK,
+    })
+      .addOperation(operation)
+      .setTimeout(60)
+      .build();
+
+    const preparedTx = await rpcServer.prepareTransaction(tx);
+    const signResult = await signTransactionXDR(preparedTx.toXDR());
+    if (!signResult.success || !signResult.signedXDR) {
+      return { success: false, txHash: null, error: signResult.error || 'Signing failed.' };
+    }
+
+    const signedTx = StellarSdk.TransactionBuilder.fromXDR(signResult.signedXDR, STELLAR_NETWORK);
+    const sendResult = await rpcServer.sendTransaction(signedTx);
+
+    if (sendResult.status === 'ERROR') {
+      return { success: false, txHash: sendResult.hash || null, error: 'Soroban RPC rejected transaction.' };
+    }
+
+    const finalResult = await pollSorobanResult(rpcServer, sendResult.hash);
+    if (!finalResult.success) {
+      return { success: false, txHash: sendResult.hash || null, error: finalResult.error };
+    }
+
+    return { success: true, txHash: sendResult.hash, error: null };
+  } catch (error) {
+    return { success: false, txHash: null, error: error.message || 'Contract invocation failed.' };
+  }
+}
+
 export default {
   connectWallet,
   getBalance,
@@ -196,4 +277,5 @@ export default {
   checkConnection,
   signTransaction: signTransactionXDR,
   sendPayment,
+  donateToAdminViaContract,
 };

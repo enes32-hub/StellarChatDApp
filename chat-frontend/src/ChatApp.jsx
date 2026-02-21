@@ -3,7 +3,6 @@ import EmojiPicker from 'emoji-picker-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { createAvatar } from '@dicebear/core';
 import { identicon } from '@dicebear/collection';
-import * as StellarSdk from 'stellar-sdk';
 import {
   connectSocket,
   disconnectSocket,
@@ -28,13 +27,14 @@ import {
   connectWallet as connectFreighterWallet,
   disconnectWallet as disconnectFreighterWallet,
   sendPayment,
+  donateToAdminViaContract,
   checkConnection,
   getBalance
 } from './utils/freighterUtils';
 
-// Soroban Contract ID (update after deploy)
-const CONTRACT_ID = 'CC3D5HEWNTBGTTNGIGT7EEY44WHGB3IMWYCVPSZGZSGLLUGAXGV4TKTN';
-const STELLAR_NETWORK = StellarSdk.Networks.TESTNET;
+// Soroban Contract ID (deployed on testnet)
+const CONTRACT_ID = (import.meta.env.VITE_CONTRACT_ID || 'CC3D5HEWNTBGTTNGIGT7EEY44WHGB3IMWYCVPSZGZSGLLUGAXGV4TKTN').trim();
+const ADMIN_ADDRESS = (import.meta.env.VITE_ADMIN_ADDRESS || 'GAH3WM7BDRBYGFTRPLI6DHYO2GREMTILTN4NYBAHYLIWK4JLLRO2HJBH').trim();
 const ROOM_CREATION_FEE = 0.1; // Small amount in XLM
 
 function ChatApp() {
@@ -232,7 +232,7 @@ function ChatApp() {
       return;
     }
 
-    const adminAddress = 'GAH3WM7BDRBYGFTRPLI6DHYO2GREMTILTN4NYBAHYLIWK4JLLRO2HJBH'; // Room fee recipient
+    const adminAddress = ADMIN_ADDRESS; // Room fee recipient
 
     toast.loading(`Paying room creation fee (${ROOM_CREATION_FEE} XLM)...`, { id: 'room-fee' });
 
@@ -319,19 +319,23 @@ function ChatApp() {
 
     try {
       const amount = parseFloat(donateAmount);
-      const adminAddress = 'GAH3WM7BDRBYGFTRPLI6DHYO2GREMTILTN4NYBAHYLIWK4JLLRO2HJBH';
 
       console.log('📊 [ChatApp] Donation details:', {
         from: publicKey,
-        to: adminAddress,
+        to: ADMIN_ADDRESS,
         amount: amount + ' XLM'
       });
 
       // Show loading
       toast.loading('Preparing donation transaction...', { id: 'donate' });
 
-      // Use utility function to send payment
-      const result = await sendPayment(publicKey, adminAddress, amount.toString());
+      // Use Soroban contract invocation for on-chain donation
+      const result = await donateToAdminViaContract(
+        publicKey,
+        amount.toString(),
+        ADMIN_ADDRESS,
+        CONTRACT_ID
+      );
 
       if (result.success) {
         // Success!
